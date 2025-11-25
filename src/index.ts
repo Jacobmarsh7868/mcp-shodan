@@ -118,7 +118,7 @@ interface ShodanHostResponse {
   hostnames: string[];
   domains: string[];
   tags: string[];
-  vuln?: string[];
+  vulns?: string[];
 }
 
 dotenv.config();
@@ -383,7 +383,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           "Vulnerabilities": result.vulns && result.vulns.length > 0 
             ? result.vulns 
             : "No vulnerabilities found",
-        },
           "Location": {
             "Country": result.country_name,
             "City": result.city,
