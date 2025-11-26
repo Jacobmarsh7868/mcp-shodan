@@ -390,6 +390,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             "ASN": result.asn,
             "Last Update": result.last_update
           },
+          "OT Security Context": {
+              "Honeypot Risk": calculateHoneypotRisk(match), // Pass the host object here
+              "Cloud Hosted": match.org // Useful context
+          },
           "Vulnerabilities": result.vulns && result.vulns.length > 0 
             ? result.vulns 
             : "No vulnerabilities found",
