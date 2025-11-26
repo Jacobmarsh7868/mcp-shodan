@@ -410,7 +410,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             "Last Update": result.last_update
           },
           "OT Security Context": {
-              "Honeypot Risk": calculateHoneypotRisk(match), // Pass the host object here
+              "Honeypot Risk": calculateHoneypotRisk(result), // Pass the host object here
               "Cloud Hosted": match.org // Useful context
           },
           "Vulnerabilities": result.vulns && result.vulns.length > 0 
@@ -491,6 +491,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               "City": match.location.city || "Unknown",
               "Region": match.location.region_code || "Unknown",
               "Coordinates": `${match.location.latitude}, ${match.location.longitude}`
+            },
+            "OT Security Context": {
+                "Honeypot Risk": calculateHoneypotRisk(result), // Pass the host object here
+                "Cloud Hosted": match.org // Useful context
             },
             "Service Details": {
               "Port": match.port,
