@@ -311,6 +311,43 @@ function calculateHoneypotRisk(host: any): string {
     return "LOW (Likely Real Asset)";
     }
 
+function assessThreatLevel(cve: any) {
+    const epssScore = cve.epss || 0;
+    const isKEV = cve.kev === true;
+    const cvssScore = cve.cvss_v3 || cve.cvss_v2 || 0;
+    const ransomware = cve.ransomware_campaign;
+
+    let riskLevel = "LOW";
+    let recommendation = "Monitor during routine maintenance.";
+    let justification = [];
+
+    // 1. Criticality Check (The "House is on Fire" Check)
+    if (isKEV || ransomware) {
+        riskLevel = "CRITICAL (Active Threat)";
+        recommendation = "IMMEDIATE ISOLATION OR PATCH REQUIRED.";
+        if (isKEV) justification.push("Listed in CISA Known Exploited Vulnerabilities.");
+        if (ransomware) justification.push(`Associated with ransomware campaign: ${ransomware}.`);
+    } 
+    // 2. High Probability Check (The "Smoking Gun" Check)
+    else if (epssScore > 0.1 || cvssScore >= 9.0) {
+        riskLevel = "HIGH";
+        recommendation = "Prioritize patching in next cycle.";
+        if (epssScore > 0.1) justification.push(`High probability of exploitation (${(epssScore * 100).toFixed(2)}%).`);
+        if (cvssScore >= 9.0) justification.push("Critical severity score.");
+    }
+    // 3. Medium Risk
+    else if (cvssScore >= 7.0) {
+        riskLevel = "MEDIUM";
+        justification.push("High severity, but low current exploit probability.");
+    }
+
+    return {
+        "Risk Level": riskLevel,
+        "Recommendation": recommendation,
+        "Key Factors": justification
+    };
+}
+
 // Helper Function for CVEs by product/CPE lookups using CVEDB
 async function queryCVEsByProduct(params: {
   cpe23?: string;
@@ -684,10 +721,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 "Ranking": `Top ${(result.ranking_epss * 100).toFixed(2)}%`
               } : "Not available"
             },
-            "Impact Assessment": {
-              "Known Exploited Vulnerability": result.kev ? "Yes" : "No",
-              "Proposed Action": result.propose_action || "No specific action proposed",
-              "Ransomware Campaign": result.ransomware_campaign || "No known ransomware campaigns"
+            "Threat Intelligence & Strategy": {
+                ...assessThreatLevel(result), // Injects Risk Level, Recommendation, and Factors
+                "Context": {
+                    "Known Exploited (KEV)": result.kev ? "⚠️ YES - CISA LISTED" : "No",
+                    "Ransomware Link": result.ransomware_campaign ? `⚠️ ${result.ransomware_campaign}` : "None known",
+                    "Exploit Prediction (EPSS)": result.epss ? `${(result.epss * 100).toFixed(2)}% chance of exploitation` : "N/A"
+                }
             },
             "Affected Products": result.cpes?.length > 0 ? result.cpes : ["No specific products listed"],
             "Additional Information": {
