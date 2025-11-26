@@ -654,6 +654,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 "Location": `${match.location.city}, ${match.location.country_name}`,
                 "Risk Analysis": {
                     "Honeypot Level": calculateHoneypotRisk(match),
+                    // NEW: Check if the asset has the "kev" tag
+                    "Critical Threats": match.tags && match.tags.includes("kev") 
+                        ? "⚠️ CONTAINS KNOWN EXPLOITED VULNERABILITIES" 
+                        : "No active exploitation tags",
                     "Open Ports": match.port
                 },
                 "OT Details": {
