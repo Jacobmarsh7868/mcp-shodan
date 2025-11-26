@@ -248,6 +248,25 @@ async function queryCPEDB(params: {
   }
 }
 
+function parseS7Banner(banner: string | undefined) {
+    if (!banner) return null;
+   
+    // Extract key OT details using Regex
+    const moduleMatch = banner.match(/Module type:\s*([^\n]+)/);
+    const firmwareMatch = banner.match(/Basic Firmware:\s*v\.?([\d\.]+)/);
+    const serialMatch = banner.match(/Serial number of module:\s*([^\n]+)/);
+    const plantIdMatch = banner.match(/Plant identification:\s*([^\n]+)/);
+
+    if (!moduleMatch && !firmwareMatch) return null; // Not an S7 banner
+
+    return {
+        "Hardware Module": moduleMatch ? moduleMatch[1].trim() : "Unknown",
+        "Firmware Version": firmwareMatch ? firmwareMatch[1].trim() : "Unknown",
+        "Serial Number": serialMatch ? serialMatch[1].trim() : "Unknown",
+        "Plant ID": plantIdMatch ? plantIdMatch[1].trim() : "None"
+    };
+}
+
 // Helper Function for CVEs by product/CPE lookups using CVEDB
 async function queryCVEsByProduct(params: {
   cpe23?: string;
