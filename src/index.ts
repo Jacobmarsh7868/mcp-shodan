@@ -435,7 +435,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           },
           "OT Security Context": {
               "Honeypot Risk": calculateHoneypotRisk(result), // Pass the host object here
-              "Cloud Hosted": match.org // Useful context
+              "Cloud Hosted": result.org // Useful context
           },
           "Vulnerabilities": result.vulns && result.vulns.length > 0 
             ? result.vulns 
@@ -517,7 +517,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               "Coordinates": `${match.location.latitude}, ${match.location.longitude}`
             },
             "OT Security Context": {
-                "Honeypot Risk": calculateHoneypotRisk(result), // Pass the host object here
+                "Honeypot Risk": calculateHoneypotRisk(match), // Pass the host object here
                 "Cloud Hosted": match.org // Useful context
             },
             "Service Details": {
