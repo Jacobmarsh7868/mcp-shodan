@@ -326,6 +326,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       inputSchema: zodToJsonSchema(ShodanSearchArgsSchema),
     },
     {
+      name: "ot_asset_search",
+      description: "Specialized search for Industrial Control Systems (OT). Maps high-level device types to specific, high-fidelity Shodan queries (ports, tags, and product names). Use this for finding PLCs, HMIs, or specific protocols.",
+      inputSchema: zodToJsonSchema(z.object({
+        asset_type: z.enum(["siemens_s7", "modbus_generic", "niagara_building", "bacnet_building", "ethernet_ip", "omron_plc", "general_ics"])
+          .describe("The specific class of OT device to hunt for."),
+        country: z.string().length(2).optional().describe("2-letter country code (e.g., 'DE', 'US')."),
+        org: z.string().optional().describe("Filter by specific organization name."),
+      })),
+    },
+    {
       name: "cve_lookup",
       description: "Query detailed vulnerability information from Shodan's CVEDB. Returns comprehensive CVE details including CVSS scores (v2/v3), EPSS probability and ranking, KEV status, proposed mitigations, ransomware associations, and affected products (CPEs).",
       inputSchema: zodToJsonSchema(CVELookupArgsSchema),
