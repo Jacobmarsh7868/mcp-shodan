@@ -51,6 +51,15 @@ interface SearchMatch {
   port: number;
   data: string;
   asn: string;
+  bacnet?: {
+    instance_id?: number;
+    object_id?: number;
+    vendor_id?: number;
+    vendor_name?: string;
+    model_name?: string;
+    firmware_revision?: string;
+    application_software_revision?: string;
+  };
   ssl?: {
     cert?: {
       subject?: {
@@ -284,6 +293,36 @@ function parseS7Banner(banner: string | undefined) {
         "Firmware Version": firmwareMatch ? firmwareMatch[1].trim() : "Unknown",
         "Serial Number": serialMatch ? serialMatch[1].trim() : "Unknown",
         "Plant ID": plantIdMatch ? plantIdMatch[1].trim() : "None"
+    };
+}
+
+function parseModbusBanner(banner: string | undefined) {
+    if (!banner) return null;
+
+    // Modbus banners in Shodan data often look like: "Unit ID: 1\nSlave ID Data: ..."
+    const unitIdMatch = banner.match(/Unit ID:\s*(\d+)/);
+    const slaveIdMatch = banner.match(/Slave ID Data:\s*([^\n]+)/);
+    const funcCodeMatch = banner.match(/Function Code:\s*(\d+)/);
+    const exceptionMatch = banner.match(/Exception Code:\s*(\d+)/);
+
+    if (!unitIdMatch && !slaveIdMatch) return null;
+
+    return {
+        "Unit ID": unitIdMatch ? unitIdMatch[1] : "Unknown",
+        "Slave Data": slaveIdMatch ? slaveIdMatch[1].trim() : "None",
+        "Response Type": exceptionMatch ? `⚠️ Exception Error (${exceptionMatch[1]})` : "Normal Response"
+    };
+}
+
+function parseBACnetDetails(bacnet: any) {
+    if (!bacnet) return null;
+
+    return {
+        "Device Instance": bacnet.instance_id || "Unknown",
+        "Vendor": bacnet.vendor_name || `Vendor ID ${bacnet.vendor_id}` || "Unknown",
+        "Model": bacnet.model_name || "Unknown",
+        "Firmware": bacnet.firmware_revision || "Unknown",
+        "Application Software": bacnet.application_software_revision || "None"
     };
 }
 
@@ -710,8 +749,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     "Protocol": match.transport,
                     
                     // EXISTING: Protocol Parsers
+                    // Siemens (Port 102)
                     ...(match.port === 102 ? { "Siemens Internals": parseS7Banner(match.data) } : {}),
+                    // Rockwell (Port 44818)
                     ...(match.port === 44818 ? { "Rockwell Internals": parseEtherNetIPBanner(match.data) } : {}),
+                    // Modbus (Port 502)
+                    ...(match.port === 502 ? { "Modbus Internals": parseModbusBanner(match.data) } : {}),
+                    // BACnet (Port 47808) - Note: we use match.bacnet object here, not match.data
+                    ...(match.port === 47808 ? { "BACnet Details": parseBACnetDetails(match.bacnet) } : {}),
                     
                     // NEW: Certificate Intelligence
                     ...(match.ssl ? { "Digital Identity (SSL)": analyzeCertificate(match.ssl) } : {}),
