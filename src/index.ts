@@ -72,6 +72,7 @@ interface SearchMatch {
   };
   ssl?: {
     cert?: {
+      serial?: string;
       subject?: {
         CN?: string;
         O?: string;
@@ -93,7 +94,11 @@ interface SearchMatch {
   http?: {
     server?: string;
     title?: string;
-    components?: Record<string, any>;
+    favicon?: {
+      hash?: number;
+      location?: string;
+    };
+    components?: Record<string, { categories: string[] }>;
     robots?: string | null;
     sitemap?: string | null;
   };
@@ -460,6 +465,56 @@ function parseVNCDetails(rfb: any) {
         "Risk Assessment": isAuthDisabled 
             ? "CRITICAL - Direct Visual Control Possible" 
             : "Medium (Brute-force target)"
+    };
+}
+
+function generatePivots(match: SearchMatch) {
+    const pivots: Record<string, string> = {};
+
+    // 1. Pivot by Favicon (Visual Signature)
+    if (match.http?.favicon?.hash) {
+        pivots["Find similar Web Interfaces"] = `http.favicon.hash:${match.http.favicon.hash}`;
+    }
+
+    // 2. Pivot by SSL Serial (Identity Signature)
+    if (match.ssl?.cert?.serial) {
+        // Shodan uses decimal format for serial searches usually, ensuring it's a string
+        pivots["Find same Cert Authority"] = `ssl.cert.serial:${match.ssl.cert.serial}`;
+    }
+
+    // 3. Pivot by Organization (Network Block)
+    if (match.org) {
+        pivots["Find all Org Assets"] = `org:"${match.org}"`;
+    }
+
+    // 4. Pivot by Engineering Artifact (Software Version)
+    // If we found a .ACD file, search for others leaking files
+    if (match.data && match.data.includes(".acd")) {
+        pivots["Find Rockwell Source Code Leaks"] = 'port:80,443,8080,21 ".acd"';
+    }
+
+    return Object.keys(pivots).length > 0 ? pivots : "No pivot points found";
+}
+
+function extractSBOM(http: any) {
+    if (!http || !http.components) return null;
+
+    // Convert Shodan's component map to a readable list
+    const stack = Object.keys(http.components).map(comp => {
+        const categories = http.components[comp].categories || [];
+        return `${comp} (${categories.join(", ")})`;
+    });
+
+    // Check for high-risk legacy libraries
+    const riskyLibs = stack.filter(s => 
+        s.includes("jQuery 1.") || 
+        s.includes("OpenSSL 1.0") || 
+        s.includes("PHP 5")
+    );
+
+    return {
+        "Full Stack": stack,
+        "Supply Chain Risks": riskyLibs.length > 0 ? riskyLibs : "No obvious legacy libs"
     };
 }
 
@@ -979,7 +1034,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         // FIXED: Correct Google Maps Link
                         "Map View": `https://www.google.com/maps?q=$${match.location.latitude},${match.location.longitude}`
                     },
-                    "Infrastructure Type": classifyInfrastructure(match.isp, match.org),
                     "Risk Analysis": {
                         "Honeypot Level": calculateHoneypotRisk(match),
                         "Critical Threats": match.tags && match.tags.includes("kev") 
@@ -1002,6 +1056,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                                 : "No CPE match found"),
                         "Exploit Resources": exploits || "No CVEs mapped"
                     },
+                    "Infrastructure Type": classifyInfrastructure(match.isp, match.org),
+                    "Pivot Points (Lateral Movement)": generatePivots(match),
+                    "Software Supply Chain": match.http ? extractSBOM(match.http) : "No Web Components",
                     "OT Details": {
                         "Product": match.product || "Unknown",
                         "Protocol": match.transport,
